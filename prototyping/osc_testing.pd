@@ -1,0 +1,15 @@
+#N canvas 4687 1468 1627 1099 12;
+#X floatatom 103 103 5 0 0 0 - - - 0;
+#X obj 104 203 list prepend send;
+#X obj 104 230 list trim;
+#X obj 297 349 netsend -u -b;
+#X msg 533 149 disconnect;
+#X msg 533 118 connect localhost 7890;
+#X text 101 72 Seek;
+#X obj 104 176 oscformat /jadeo/seek;
+#X connect 0 0 7 0;
+#X connect 1 0 2 0;
+#X connect 2 0 3 0;
+#X connect 4 0 3 0;
+#X connect 5 0 3 0;
+#X connect 7 0 1 0;
