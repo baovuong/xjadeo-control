@@ -70,3 +70,5 @@ CMakeUserPresets.json
 
 JuceLibraryCode
 Builds
+
+.clangd
