@@ -7,30 +7,19 @@
 */
 
 #include "TestComponent.h"
+#include "FfmpegVideoInfo.h"
 
 namespace
 {
     const juce::String xjadeoHost = "127.0.0.1";
     constexpr int xjadeoPort = 7890;
     constexpr int framesPerSecond = 25;
-    constexpr int fileWatchIntervalMs = 200;
-
-    enum TimerIds
-    {
-        playbackTimerId = 0,
-        fileWatchTimerId = 1
-    };
 }
 
 //==============================================================================
 TestComponent::TestComponent()
 {
     oscSender.connect (xjadeoHost, xjadeoPort);
-
-    xjadeoOutputFile = juce::File::getSpecialLocation (juce::File::currentExecutableFile)
-                            .getSiblingFile ("xjadeo_output.log");
-
-    startTimer (fileWatchTimerId, fileWatchIntervalMs);
 
     playButton.onClick = [this] { sendPlay(); };
     addAndMakeVisible (playButton);
@@ -45,9 +34,6 @@ TestComponent::TestComponent()
     frameInput.onReturnKey = [this] { updateFrame (frameInput.getText().getIntValue()); };
     addAndMakeVisible (frameInput);
 
-    getFramesButton.onClick = [this] { getFrames(); };
-    addAndMakeVisible (getFramesButton);
-
     numFramesLabel.setText ("Total Frames: " + juce::String (numFrames), juce::dontSendNotification);
     addAndMakeVisible (numFramesLabel);
 
@@ -57,8 +43,7 @@ TestComponent::TestComponent()
 
 TestComponent::~TestComponent()
 {
-    stopTimer (playbackTimerId);
-    stopTimer (fileWatchTimerId);
+    stopTimer();
 }
 
 void TestComponent::paint (juce::Graphics& g)
@@ -77,7 +62,6 @@ void TestComponent::resized()
     flexBox.items.add (juce::FlexItem (pauseButton).withWidth (80).withHeight (30).withMargin (5));
     flexBox.items.add (juce::FlexItem (frameLabel).withWidth (60).withHeight (30).withMargin (5));
     flexBox.items.add (juce::FlexItem (frameInput).withWidth (100).withHeight (30).withMargin (5));
-    flexBox.items.add (juce::FlexItem (getFramesButton).withWidth (100).withHeight (30).withMargin (5));
     flexBox.items.add (juce::FlexItem (numFramesLabel).withWidth (150).withHeight (30).withMargin (5));
     flexBox.items.add (juce::FlexItem (loadFileButton).withWidth (100).withHeight (30).withMargin (5));
 
@@ -86,15 +70,15 @@ void TestComponent::resized()
 
 void TestComponent::sendPlay()
 {
-    startTimer (playbackTimerId, 1000 / framesPerSecond);
+    startTimer (1000 / framesPerSecond);
 }
 
 void TestComponent::sendPause()
 {
-    stopTimer (playbackTimerId);
+    stopTimer();
 }
 
-void TestComponent::updateFrame(int frame) 
+void TestComponent::updateFrame(int frame)
 {
     currentFrame = frame;
     sendFrame(frame);
@@ -105,17 +89,9 @@ void TestComponent::sendFrame (int frame)
     oscSender.send ("/jadeo/seek", frame);
 }
 
-void TestComponent::getFrames()
+void TestComponent::timerCallback()
 {
-    oscSender.send ("/jadeo/cmd", juce::String ("get frames"));
-}
-
-void TestComponent::timerCallback (int timerId)
-{
-    if (timerId == playbackTimerId)
-        updateFrame(currentFrame + 1);
-    else if (timerId == fileWatchTimerId)
-        checkForFileChanges();
+    updateFrame (currentFrame + 1);
 }
 
 void TestComponent::loadFile()
@@ -142,41 +118,9 @@ void TestComponent::loadFile()
 void TestComponent::sendLoadFile (const juce::File& file)
 {
     oscSender.send ("/jadeo/load", file.getFullPathName());
-    oscSender.send ("/jadeo/cmd", juce::String ("get frames"));
-}
 
-void TestComponent::checkForFileChanges()
-{
-    const auto currentSize = xjadeoOutputFile.getSize();
+    const auto info = readFfmpegVideoInfo (file);
 
-    if (currentSize < lastReadPosition)
-        lastReadPosition = 0;
-
-    if (currentSize == lastReadPosition)
-        return;
-
-    juce::FileInputStream stream (xjadeoOutputFile);
-
-    if (! stream.openedOk())
-        return;
-
-    stream.setPosition (lastReadPosition);
-    const auto newText = stream.readString();
-    lastReadPosition = stream.getPosition();
-
-    for (const auto& line : juce::StringArray::fromLines (newText))
-    {
-        if (line.isEmpty())
-            continue;
-
-        DBG ("xjadeo output: " + line);
-
-        if (line.startsWith ("total frames:"))
-        {
-            DBG ("hell yeah" + line);
-
-            numFrames = line.fromFirstOccurrenceOf (":", false, false).trim().getIntValue();
-            numFramesLabel.setText ("Total Frames: " + juce::String (numFrames), juce::dontSendNotification);
-        }
-    }
+    numFrames = info.isValid ? info.frameCount : 0;
+    numFramesLabel.setText ("Total Frames: " + juce::String (numFrames), juce::dontSendNotification);
 }
