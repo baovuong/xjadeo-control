@@ -58,13 +58,29 @@ public:
     static constexpr int playNoteNumber  = 36; // C1
     static constexpr int pauseNoteNumber = 37; // C#1
 
-    bool consumePlayRequest() noexcept  { return playRequested.exchange (false); }
-    bool consumePauseRequest() noexcept { return pauseRequested.exchange (false); }
+    // Called from the message thread to drain MIDI note-on numbers received since the last call.
+    // Returns false once no more are available. Single-consumer: call from one thread only.
+    bool popNoteOn (int& noteNumberOut) noexcept
+    {
+        int start1, size1, start2, size2;
+        midiNoteFifo.prepareToRead (1, start1, size1, start2, size2);
+
+        if (size1 > 0)
+            noteNumberOut = midiNoteBuffer[(size_t) start1];
+        else if (size2 > 0)
+            noteNumberOut = midiNoteBuffer[(size_t) start2];
+        else
+            return false;
+
+        midiNoteFifo.finishedRead (size1 + size2);
+        return true;
+    }
 
 private:
     //==============================================================================
-    std::atomic<bool> playRequested  { false };
-    std::atomic<bool> pauseRequested { false };
+    static constexpr int midiNoteBufferSize = 256;
+    juce::AbstractFifo midiNoteFifo { midiNoteBufferSize };
+    std::array<int, midiNoteBufferSize> midiNoteBuffer;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (XJadeoControlAudioProcessor)
 };

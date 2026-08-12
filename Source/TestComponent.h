@@ -15,7 +15,8 @@
 /**
 */
 class TestComponent  : public juce::Component,
-                        private juce::MultiTimer
+                        private juce::MultiTimer,
+                        private juce::TableListBoxModel
 {
 public:
     explicit TestComponent (XJadeoControlAudioProcessor& processor);
@@ -31,6 +32,20 @@ private:
         midiPollTimer
     };
 
+    enum ColumnId
+    {
+        midiNoteColumnId = 1,
+        frameColumnId,
+        seekColumnId,
+        removeColumnId
+    };
+
+    struct CuePoint
+    {
+        int midiNote;
+        int frame;
+    };
+
     void sendPlay();
     void sendPause();
     void sendFrame (int frame);
@@ -39,20 +54,37 @@ private:
     void loadFile();
     void sendLoadFile (const juce::File& file);
 
+    void addCuePoint();
+    void seekToCue (int row);
+    void removeCue (int row);
+    void triggerCueForNote (int midiNote);
+    int nextAvailableCueNote() const;
+
     void timerCallback (int timerID) override;
+
+    // juce::TableListBoxModel
+    int getNumRows() override;
+    void paintRowBackground (juce::Graphics&, int rowNumber, int width, int height, bool rowIsSelected) override;
+    void paintCell (juce::Graphics&, int rowNumber, int columnId, int width, int height, bool rowIsSelected) override;
+    juce::Component* refreshComponentForCell (int rowNumber, int columnId, bool isRowSelected,
+                                               juce::Component* existingComponentToUpdate) override;
 
     XJadeoControlAudioProcessor& audioProcessor;
 
     juce::TextButton playButton      { "Play" };
     juce::TextButton pauseButton     { "Pause" };
     juce::TextButton loadFileButton  { "Load File" };
+    juce::TextButton addCueButton    { "Add Cue" };
     juce::Label frameLabel;
     juce::Slider frameSlider;
+    juce::TableListBox cueTable;
 
     juce::OSCSender oscSender;
 
     juce::File videoFile;
     std::unique_ptr<juce::FileChooser> fileChooser;
+
+    juce::Array<CuePoint> cuePoints;
 
     int currentFrame = 0;
     juce::int64 numFrames = 0;

@@ -164,10 +164,17 @@ void XJadeoControlAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer
         if (! message.isNoteOn())
             continue;
 
-        if (message.getNoteNumber() == playNoteNumber)
-            playRequested.store (true);
-        else if (message.getNoteNumber() == pauseNoteNumber)
-            pauseRequested.store (true);
+        int start1, size1, start2, size2;
+        midiNoteFifo.prepareToWrite (1, start1, size1, start2, size2);
+
+        if (size1 > 0)
+            midiNoteBuffer[(size_t) start1] = message.getNoteNumber();
+        else if (size2 > 0)
+            midiNoteBuffer[(size_t) start2] = message.getNoteNumber();
+        else
+            continue; // FIFO full; drop the message.
+
+        midiNoteFifo.finishedWrite (size1 + size2);
     }
 }
 
