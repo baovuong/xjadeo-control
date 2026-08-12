@@ -9,6 +9,8 @@
 #include "TestComponent.h"
 #include "FfmpegVideoInfo.h"
 
+#include <algorithm>
+
 namespace
 {
     const juce::String xjadeoHost = "127.0.0.1";
@@ -17,10 +19,30 @@ namespace
 
     const juce::String loadCmd = "/jadeo/load";
     const juce::String seekCmd = "/jadeo/seek";
+
+    // Cue points start above the play/pause notes (36/37).
+    constexpr int firstCueNoteNumber = 38;
+
+    class CueActionButton  : public juce::TextButton
+    {
+    public:
+        CueActionButton (const juce::String& buttonText, std::function<void (int)> callbackIn)
+            : juce::TextButton (buttonText), callback (std::move (callbackIn))
+        {
+            onClick = [this] { if (callback) callback (row); };
+        }
+
+        void setRow (int newRow) { row = newRow; }
+
+    private:
+        std::function<void (int)> callback;
+        int row = -1;
+    };
 }
 
 //==============================================================================
-TestComponent::TestComponent()
+TestComponent::TestComponent (XJadeoControlAudioProcessor& processor)
+    : audioProcessor (processor)
 {
     oscSender.connect (xjadeoHost, xjadeoPort);
 
@@ -41,11 +63,24 @@ TestComponent::TestComponent()
 
     loadFileButton.onClick = [this] { loadFile(); };
     addAndMakeVisible (loadFileButton);
+
+    addCueButton.onClick = [this] { addCuePoint(); };
+    addAndMakeVisible (addCueButton);
+
+    cueTable.setModel (this);
+    cueTable.getHeader().addColumn ("MIDI Note", midiNoteColumnId, 80);
+    cueTable.getHeader().addColumn ("Frame", frameColumnId, 80);
+    cueTable.getHeader().addColumn ("Seek", seekColumnId, 60);
+    cueTable.getHeader().addColumn ("Remove", removeColumnId, 70);
+    addAndMakeVisible (cueTable);
+
+    startTimer (midiPollTimer, 20);
 }
 
 TestComponent::~TestComponent()
 {
-    stopTimer();
+    stopTimer (frameTimer);
+    stopTimer (midiPollTimer);
 }
 
 void TestComponent::paint (juce::Graphics& g)
@@ -63,21 +98,28 @@ void TestComponent::resized()
     pauseButton.setBounds (buttonRow.removeFromLeft (80));
     buttonRow.removeFromLeft (5);
     loadFileButton.setBounds (buttonRow.removeFromLeft (100));
+    buttonRow.removeFromLeft (5);
+    addCueButton.setBounds (buttonRow.removeFromLeft (100));
+
+    bounds.removeFromTop (10);
 
     auto sliderRow = bounds.removeFromTop(30);
     frameSlider.setBounds (sliderRow.removeFromLeft (300));
     sliderRow.removeFromLeft(5);
     frameLabel.setBounds(sliderRow.removeFromLeft(100));
+
+    bounds.removeFromTop (10);
+    cueTable.setBounds (bounds);
 }
 
 void TestComponent::sendPlay()
 {
-    startTimer (1000 / framesPerSecond);
+    startTimer (frameTimer, 1000 / framesPerSecond);
 }
 
 void TestComponent::sendPause()
 {
-    stopTimer();
+    stopTimer (frameTimer);
 }
 
 void TestComponent::updateFrame (int frame)
@@ -102,12 +144,29 @@ void TestComponent::sendFrame (int frame)
     oscSender.send (seekCmd, frame);
 }
 
-void TestComponent::timerCallback()
+void TestComponent::timerCallback (int timerID)
 {
-    updateFrame (currentFrame + 1);
+    if (timerID == frameTimer)
+    {
+        updateFrame (currentFrame + 1);
 
-    if (numFrames > 0 && currentFrame >= numFrames - 1)
-        sendPause();
+        if (numFrames > 0 && currentFrame >= numFrames - 1)
+            sendPause();
+    }
+    else if (timerID == midiPollTimer)
+    {
+        int noteNumber;
+
+        while (audioProcessor.popNoteOn (noteNumber))
+        {
+            if (noteNumber == XJadeoControlAudioProcessor::playNoteNumber)
+                sendPlay();
+            else if (noteNumber == XJadeoControlAudioProcessor::pauseNoteNumber)
+                sendPause();
+            else
+                triggerCueForNote (noteNumber);
+        }
+    }
 }
 
 void TestComponent::loadFile()
@@ -143,4 +202,107 @@ void TestComponent::sendLoadFile (const juce::File& file)
     frameSlider.setRange (0, (double) juce::jmax ((juce::int64) 0, numFrames - 1), 1);
     frameSlider.setValue (0, juce::dontSendNotification);
     updateFrameLabel();
+}
+
+void TestComponent::addCuePoint()
+{
+    cuePoints.add ({ nextAvailableCueNote(), currentFrame });
+    cueTable.updateContent();
+}
+
+void TestComponent::seekToCue (int row)
+{
+    if (! juce::isPositiveAndBelow (row, cuePoints.size()))
+        return;
+
+    updateFrame (cuePoints.getReference (row).frame);
+}
+
+void TestComponent::removeCue (int row)
+{
+    if (! juce::isPositiveAndBelow (row, cuePoints.size()))
+        return;
+
+    cuePoints.remove (row);
+    cueTable.updateContent();
+}
+
+void TestComponent::triggerCueForNote (int midiNote)
+{
+    for (const auto& cue : cuePoints)
+    {
+        if (cue.midiNote == midiNote)
+        {
+            updateFrame (cue.frame);
+            break;
+        }
+    }
+}
+
+int TestComponent::nextAvailableCueNote() const
+{
+    int note = firstCueNoteNumber;
+
+    while (std::any_of (cuePoints.begin(), cuePoints.end(),
+                         [note] (const CuePoint& cue) { return cue.midiNote == note; }))
+        ++note;
+
+    return note;
+}
+
+//==============================================================================
+int TestComponent::getNumRows()
+{
+    return cuePoints.size();
+}
+
+void TestComponent::paintRowBackground (juce::Graphics& g, int /*rowNumber*/, int /*width*/, int /*height*/,
+                                         bool rowIsSelected)
+{
+    g.fillAll (rowIsSelected ? getLookAndFeel().findColour (juce::TextEditor::highlightColourId)
+                              : getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId));
+}
+
+void TestComponent::paintCell (juce::Graphics& g, int rowNumber, int columnId, int width, int height,
+                                bool /*rowIsSelected*/)
+{
+    if (! juce::isPositiveAndBelow (rowNumber, cuePoints.size()))
+        return;
+
+    const auto& cue = cuePoints.getReference (rowNumber);
+    juce::String text;
+
+    if (columnId == midiNoteColumnId)
+        text = juce::String (cue.midiNote);
+    else if (columnId == frameColumnId)
+        text = juce::String (cue.frame);
+    else
+        return;
+
+    g.setColour (getLookAndFeel().findColour (juce::ListBox::textColourId));
+    g.drawText (text, 4, 0, width - 8, height, juce::Justification::centredLeft);
+}
+
+juce::Component* TestComponent::refreshComponentForCell (int rowNumber, int columnId, bool /*isRowSelected*/,
+                                                           juce::Component* existingComponentToUpdate)
+{
+    if (columnId != seekColumnId && columnId != removeColumnId)
+    {
+        delete existingComponentToUpdate;
+        return nullptr;
+    }
+
+    auto* button = dynamic_cast<CueActionButton*> (existingComponentToUpdate);
+
+    if (button == nullptr)
+    {
+        delete existingComponentToUpdate;
+
+        button = columnId == seekColumnId
+                   ? new CueActionButton ("Seek", [this] (int row) { seekToCue (row); })
+                   : new CueActionButton ("Remove", [this] (int row) { removeCue (row); });
+    }
+
+    button->setRow (rowNumber);
+    return button;
 }

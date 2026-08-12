@@ -156,6 +156,26 @@ void XJadeoControlAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer
 
         // ..do something to the data...
     }
+
+    for (const auto metadata : midiMessages)
+    {
+        const auto message = metadata.getMessage();
+
+        if (! message.isNoteOn())
+            continue;
+
+        int start1, size1, start2, size2;
+        midiNoteFifo.prepareToWrite (1, start1, size1, start2, size2);
+
+        if (size1 > 0)
+            midiNoteBuffer[(size_t) start1] = message.getNoteNumber();
+        else if (size2 > 0)
+            midiNoteBuffer[(size_t) start2] = message.getNoteNumber();
+        else
+            continue; // FIFO full; drop the message.
+
+        midiNoteFifo.finishedWrite (size1 + size2);
+    }
 }
 
 //==============================================================================
