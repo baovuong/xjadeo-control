@@ -14,6 +14,9 @@ namespace
     const juce::String xjadeoHost = "127.0.0.1";
     constexpr int xjadeoPort = 7890;
     constexpr int framesPerSecond = 25;
+
+    const juce::String loadCmd = "/jadeo/load";
+    const juce::String seekCmd = "/jadeo/seek";
 }
 
 //==============================================================================
@@ -27,15 +30,14 @@ TestComponent::TestComponent()
     pauseButton.onClick = [this] { sendPause(); };
     addAndMakeVisible (pauseButton);
 
+    frameSlider.setSliderStyle (juce::Slider::LinearHorizontal);
+    frameSlider.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
+    frameSlider.setRange (0, 1, 1);
+    frameSlider.onValueChange = [this] { updateFrame ((int) frameSlider.getValue()); };
+    addAndMakeVisible (frameSlider);
+
+    updateFrameLabel();
     addAndMakeVisible (frameLabel);
-
-    frameInput.setInputRestrictions (0, "0123456789");
-    frameInput.setText ("0", juce::dontSendNotification);
-    frameInput.onReturnKey = [this] { updateFrame (frameInput.getText().getIntValue()); };
-    addAndMakeVisible (frameInput);
-
-    numFramesLabel.setText ("Total Frames: " + juce::String (numFrames), juce::dontSendNotification);
-    addAndMakeVisible (numFramesLabel);
 
     loadFileButton.onClick = [this] { loadFile(); };
     addAndMakeVisible (loadFileButton);
@@ -53,19 +55,19 @@ void TestComponent::paint (juce::Graphics& g)
 
 void TestComponent::resized()
 {
-    juce::FlexBox flexBox;
-    flexBox.flexDirection = juce::FlexBox::Direction::column;
-    flexBox.flexWrap = juce::FlexBox::Wrap::wrap;
-    flexBox.alignItems = juce::FlexBox::AlignItems::center;
+    auto bounds = getLocalBounds().reduced (10);
 
-    flexBox.items.add (juce::FlexItem (playButton).withWidth (80).withHeight (30).withMargin (5));
-    flexBox.items.add (juce::FlexItem (pauseButton).withWidth (80).withHeight (30).withMargin (5));
-    flexBox.items.add (juce::FlexItem (frameLabel).withWidth (60).withHeight (30).withMargin (5));
-    flexBox.items.add (juce::FlexItem (frameInput).withWidth (100).withHeight (30).withMargin (5));
-    flexBox.items.add (juce::FlexItem (numFramesLabel).withWidth (150).withHeight (30).withMargin (5));
-    flexBox.items.add (juce::FlexItem (loadFileButton).withWidth (100).withHeight (30).withMargin (5));
+    auto buttonRow = bounds.removeFromTop (30);
+    playButton.setBounds (buttonRow.removeFromLeft (80));
+    buttonRow.removeFromLeft (5);
+    pauseButton.setBounds (buttonRow.removeFromLeft (80));
+    buttonRow.removeFromLeft (5);
+    loadFileButton.setBounds (buttonRow.removeFromLeft (100));
 
-    flexBox.performLayout (getLocalBounds().reduced (10));
+    auto sliderRow = bounds.removeFromTop(30);
+    frameSlider.setBounds (sliderRow.removeFromLeft (300));
+    sliderRow.removeFromLeft(5);
+    frameLabel.setBounds(sliderRow.removeFromLeft(100));
 }
 
 void TestComponent::sendPlay()
@@ -78,20 +80,34 @@ void TestComponent::sendPause()
     stopTimer();
 }
 
-void TestComponent::updateFrame(int frame)
+void TestComponent::updateFrame (int frame)
 {
+    frame = numFrames > 0 ? juce::jlimit (0, (int) numFrames - 1, frame) : 0;
+
     currentFrame = frame;
-    sendFrame(frame);
+    sendFrame (frame);
+
+    frameSlider.setValue (frame, juce::dontSendNotification);
+    updateFrameLabel();
+}
+
+void TestComponent::updateFrameLabel()
+{
+    frameLabel.setText (juce::String (currentFrame) + " / " + juce::String (numFrames),
+                         juce::dontSendNotification);
 }
 
 void TestComponent::sendFrame (int frame)
 {
-    oscSender.send ("/jadeo/seek", frame);
+    oscSender.send (seekCmd, frame);
 }
 
 void TestComponent::timerCallback()
 {
     updateFrame (currentFrame + 1);
+
+    if (numFrames > 0 && currentFrame >= numFrames - 1)
+        sendPause();
 }
 
 void TestComponent::loadFile()
@@ -117,10 +133,14 @@ void TestComponent::loadFile()
 
 void TestComponent::sendLoadFile (const juce::File& file)
 {
-    oscSender.send ("/jadeo/load", file.getFullPathName());
+    oscSender.send (loadCmd, file.getFullPathName());
 
     const auto info = readFfmpegVideoInfo (file);
 
     numFrames = info.isValid ? info.frameCount : 0;
-    numFramesLabel.setText ("Total Frames: " + juce::String (numFrames), juce::dontSendNotification);
+    currentFrame = 0;
+
+    frameSlider.setRange (0, (double) juce::jmax ((juce::int64) 0, numFrames - 1), 1);
+    frameSlider.setValue (0, juce::dontSendNotification);
+    updateFrameLabel();
 }

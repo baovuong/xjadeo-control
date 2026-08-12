@@ -27,7 +27,8 @@ private:
     void sendPlay();
     void sendPause();
     void sendFrame (int frame);
-    void updateFrame(int frame);
+    void updateFrame (int frame);
+    void updateFrameLabel();
     void loadFile();
     void sendLoadFile (const juce::File& file);
 
@@ -36,9 +37,8 @@ private:
     juce::TextButton playButton      { "Play" };
     juce::TextButton pauseButton     { "Pause" };
     juce::TextButton loadFileButton  { "Load File" };
-    juce::Label frameLabel       { {}, "Frame:" };
-    juce::TextEditor frameInput;
-    juce::Label numFramesLabel;
+    juce::Label frameLabel;
+    juce::Slider frameSlider;
 
     juce::OSCSender oscSender;
 
