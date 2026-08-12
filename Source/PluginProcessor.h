@@ -53,7 +53,18 @@ public:
     void getStateInformation (juce::MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
 
+    //==============================================================================
+    // MIDI note numbers (C3 = middle C / note 60 convention) that trigger transport control.
+    static constexpr int playNoteNumber  = 36; // C1
+    static constexpr int pauseNoteNumber = 37; // C#1
+
+    bool consumePlayRequest() noexcept  { return playRequested.exchange (false); }
+    bool consumePauseRequest() noexcept { return pauseRequested.exchange (false); }
+
 private:
     //==============================================================================
+    std::atomic<bool> playRequested  { false };
+    std::atomic<bool> pauseRequested { false };
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (XJadeoControlAudioProcessor)
 };

@@ -156,6 +156,19 @@ void XJadeoControlAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer
 
         // ..do something to the data...
     }
+
+    for (const auto metadata : midiMessages)
+    {
+        const auto message = metadata.getMessage();
+
+        if (! message.isNoteOn())
+            continue;
+
+        if (message.getNoteNumber() == playNoteNumber)
+            playRequested.store (true);
+        else if (message.getNoteNumber() == pauseNoteNumber)
+            pauseRequested.store (true);
+    }
 }
 
 //==============================================================================

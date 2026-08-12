@@ -20,7 +20,8 @@ namespace
 }
 
 //==============================================================================
-TestComponent::TestComponent()
+TestComponent::TestComponent (XJadeoControlAudioProcessor& processor)
+    : audioProcessor (processor)
 {
     oscSender.connect (xjadeoHost, xjadeoPort);
 
@@ -41,11 +42,14 @@ TestComponent::TestComponent()
 
     loadFileButton.onClick = [this] { loadFile(); };
     addAndMakeVisible (loadFileButton);
+
+    startTimer (midiPollTimer, 20);
 }
 
 TestComponent::~TestComponent()
 {
-    stopTimer();
+    stopTimer (frameTimer);
+    stopTimer (midiPollTimer);
 }
 
 void TestComponent::paint (juce::Graphics& g)
@@ -72,12 +76,12 @@ void TestComponent::resized()
 
 void TestComponent::sendPlay()
 {
-    startTimer (1000 / framesPerSecond);
+    startTimer (frameTimer, 1000 / framesPerSecond);
 }
 
 void TestComponent::sendPause()
 {
-    stopTimer();
+    stopTimer (frameTimer);
 }
 
 void TestComponent::updateFrame (int frame)
@@ -102,12 +106,23 @@ void TestComponent::sendFrame (int frame)
     oscSender.send (seekCmd, frame);
 }
 
-void TestComponent::timerCallback()
+void TestComponent::timerCallback (int timerID)
 {
-    updateFrame (currentFrame + 1);
+    if (timerID == frameTimer)
+    {
+        updateFrame (currentFrame + 1);
 
-    if (numFrames > 0 && currentFrame >= numFrames - 1)
-        sendPause();
+        if (numFrames > 0 && currentFrame >= numFrames - 1)
+            sendPause();
+    }
+    else if (timerID == midiPollTimer)
+    {
+        if (audioProcessor.consumePlayRequest())
+            sendPlay();
+
+        if (audioProcessor.consumePauseRequest())
+            sendPause();
+    }
 }
 
 void TestComponent::loadFile()

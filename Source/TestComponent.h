@@ -9,21 +9,28 @@
 #pragma once
 
 #include <JuceHeader.h>
+#include "PluginProcessor.h"
 
 //==============================================================================
 /**
 */
 class TestComponent  : public juce::Component,
-                        private juce::Timer
+                        private juce::MultiTimer
 {
 public:
-    TestComponent();
+    explicit TestComponent (XJadeoControlAudioProcessor& processor);
     ~TestComponent() override;
 
     void paint (juce::Graphics&) override;
     void resized() override;
 
 private:
+    enum TimerId
+    {
+        frameTimer = 0,
+        midiPollTimer
+    };
+
     void sendPlay();
     void sendPause();
     void sendFrame (int frame);
@@ -32,7 +39,9 @@ private:
     void loadFile();
     void sendLoadFile (const juce::File& file);
 
-    void timerCallback() override;
+    void timerCallback (int timerID) override;
+
+    XJadeoControlAudioProcessor& audioProcessor;
 
     juce::TextButton playButton      { "Play" };
     juce::TextButton pauseButton     { "Pause" };
