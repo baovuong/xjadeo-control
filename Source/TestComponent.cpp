@@ -206,30 +206,30 @@ void TestComponent::sendLoadFile (const juce::File& file)
 
 void TestComponent::addCuePoint()
 {
-    cuePoints.add ({ nextAvailableCueNote(), currentFrame });
+    audioProcessor.cuePoints.add ({ nextAvailableCueNote(), currentFrame });
     cueTable.updateContent();
 }
 
 void TestComponent::seekToCue (int row)
 {
-    if (! juce::isPositiveAndBelow (row, cuePoints.size()))
+    if (! juce::isPositiveAndBelow (row, audioProcessor.cuePoints.size()))
         return;
 
-    updateFrame (cuePoints.getReference (row).frame);
+    updateFrame (audioProcessor.cuePoints.getReference (row).frame);
 }
 
 void TestComponent::removeCue (int row)
 {
-    if (! juce::isPositiveAndBelow (row, cuePoints.size()))
+    if (! juce::isPositiveAndBelow (row, audioProcessor.cuePoints.size()))
         return;
 
-    cuePoints.remove (row);
+    audioProcessor.cuePoints.remove (row);
     cueTable.updateContent();
 }
 
 void TestComponent::triggerCueForNote (int midiNote)
 {
-    for (const auto& cue : cuePoints)
+    for (const auto& cue : audioProcessor.cuePoints)
     {
         if (cue.midiNote == midiNote)
         {
@@ -243,8 +243,8 @@ int TestComponent::nextAvailableCueNote() const
 {
     int note = firstCueNoteNumber;
 
-    while (std::any_of (cuePoints.begin(), cuePoints.end(),
-                         [note] (const CuePoint& cue) { return cue.midiNote == note; }))
+    while (std::any_of (audioProcessor.cuePoints.begin(), audioProcessor.cuePoints.end(),
+                         [note] (const XJadeoControlAudioProcessor::CuePoint& cue) { return cue.midiNote == note; }))
         ++note;
 
     return note;
@@ -253,7 +253,7 @@ int TestComponent::nextAvailableCueNote() const
 //==============================================================================
 int TestComponent::getNumRows()
 {
-    return cuePoints.size();
+    return audioProcessor.cuePoints.size();
 }
 
 void TestComponent::paintRowBackground (juce::Graphics& g, int /*rowNumber*/, int /*width*/, int /*height*/,
@@ -266,10 +266,10 @@ void TestComponent::paintRowBackground (juce::Graphics& g, int /*rowNumber*/, in
 void TestComponent::paintCell (juce::Graphics& g, int rowNumber, int columnId, int width, int height,
                                 bool /*rowIsSelected*/)
 {
-    if (! juce::isPositiveAndBelow (rowNumber, cuePoints.size()))
+    if (! juce::isPositiveAndBelow (rowNumber, audioProcessor.cuePoints.size()))
         return;
 
-    const auto& cue = cuePoints.getReference (rowNumber);
+    const auto& cue = audioProcessor.cuePoints.getReference (rowNumber);
     juce::String text;
 
     if (columnId == midiNoteColumnId)

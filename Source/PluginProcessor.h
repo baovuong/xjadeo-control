@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include "juce_audio_processors/juce_audio_processors.h"
 #include <JuceHeader.h>
 
 //==============================================================================
@@ -57,6 +58,14 @@ public:
     // MIDI note numbers (C3 = middle C / note 60 convention) that trigger transport control.
     static constexpr int playNoteNumber  = 36; // C1
     static constexpr int pauseNoteNumber = 37; // C#1
+
+    struct CuePoint
+    {
+        int midiNote;
+        int frame;
+    };
+
+    juce::Array<CuePoint> cuePoints;
 
     // Called from the message thread to drain MIDI note-on numbers received since the last call.
     // Returns false once no more are available. Single-consumer: call from one thread only.

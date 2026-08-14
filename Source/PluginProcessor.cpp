@@ -8,6 +8,8 @@
 
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "juce_core/juce_core.h"
+#include <memory>
 
 //==============================================================================
 XJadeoControlAudioProcessor::XJadeoControlAudioProcessor()
@@ -192,15 +194,29 @@ juce::AudioProcessorEditor* XJadeoControlAudioProcessor::createEditor()
 //==============================================================================
 void XJadeoControlAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
-    // You should use this method to store your parameters in the memory block.
-    // You could do that either as raw data, or use the XML or ValueTree classes
-    // as intermediaries to make it easy to save and load complex data.
+    juce::XmlElement xml ("XJadeoControlState");
+
+    for (const auto& cue : cuePoints)
+    {
+        auto* cueXml = xml.createNewChildElement ("CUEPOINT");
+        cueXml->setAttribute ("midiNote", cue.midiNote);
+        cueXml->setAttribute ("frame", cue.frame);
+    }
+
+    copyXmlToBinary (xml, destData);
 }
 
 void XJadeoControlAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
-    // You should use this method to restore your parameters from this memory block,
-    // whose contents will have been created by the getStateInformation() call.
+    std::unique_ptr<juce::XmlElement> xmlState (getXmlFromBinary (data, sizeInBytes));
+
+    if (xmlState == nullptr || ! xmlState->hasTagName ("XJadeoControlState"))
+        return;
+
+    cuePoints.clear();
+
+    for (auto* cueXml : xmlState->getChildWithTagNameIterator ("CUEPOINT"))
+        cuePoints.add ({ cueXml->getIntAttribute ("midiNote"), cueXml->getIntAttribute ("frame") });
 }
 
 //==============================================================================

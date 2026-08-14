@@ -40,12 +40,6 @@ private:
         removeColumnId
     };
 
-    struct CuePoint
-    {
-        int midiNote;
-        int frame;
-    };
-
     void sendPlay();
     void sendPause();
     void sendFrame (int frame);
@@ -83,8 +77,6 @@ private:
 
     juce::File videoFile;
     std::unique_ptr<juce::FileChooser> fileChooser;
-
-    juce::Array<CuePoint> cuePoints;
 
     int currentFrame = 0;
     juce::int64 numFrames = 0;
