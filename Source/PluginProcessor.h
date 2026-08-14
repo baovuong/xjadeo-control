@@ -14,7 +14,8 @@
 //==============================================================================
 /**
 */
-class XJadeoControlAudioProcessor  : public juce::AudioProcessor
+class XJadeoControlAudioProcessor  : public juce::AudioProcessor,
+                                      public juce::ChangeBroadcaster
 {
 public:
     //==============================================================================
@@ -66,6 +67,23 @@ public:
     };
 
     juce::Array<CuePoint> cuePoints;
+
+    // Mutators broadcast a change message so any listening UI can refresh,
+    // including when cuePoints is replaced wholesale by setStateInformation().
+    void addCuePoint (const CuePoint& cue)
+    {
+        cuePoints.add (cue);
+        sendChangeMessage();
+    }
+
+    void removeCuePoint (int index)
+    {
+        if (! juce::isPositiveAndBelow (index, cuePoints.size()))
+            return;
+
+        cuePoints.remove (index);
+        sendChangeMessage();
+    }
 
     // Called from the message thread to drain MIDI note-on numbers received since the last call.
     // Returns false once no more are available. Single-consumer: call from one thread only.

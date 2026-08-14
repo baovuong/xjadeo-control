@@ -16,7 +16,8 @@
 */
 class TestComponent  : public juce::Component,
                         private juce::MultiTimer,
-                        private juce::TableListBoxModel
+                        private juce::TableListBoxModel,
+                        private juce::ChangeListener
 {
 public:
     explicit TestComponent (XJadeoControlAudioProcessor& processor);
@@ -55,6 +56,9 @@ private:
     int nextAvailableCueNote() const;
 
     void timerCallback (int timerID) override;
+
+    // juce::ChangeListener
+    void changeListenerCallback (juce::ChangeBroadcaster* source) override;
 
     // juce::TableListBoxModel
     int getNumRows() override;

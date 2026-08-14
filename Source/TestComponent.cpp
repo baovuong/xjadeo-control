@@ -74,11 +74,15 @@ TestComponent::TestComponent (XJadeoControlAudioProcessor& processor)
     cueTable.getHeader().addColumn ("Remove", removeColumnId, 70);
     addAndMakeVisible (cueTable);
 
+    audioProcessor.addChangeListener (this);
+
     startTimer (midiPollTimer, 20);
 }
 
 TestComponent::~TestComponent()
 {
+    audioProcessor.removeChangeListener (this);
+
     stopTimer (frameTimer);
     stopTimer (midiPollTimer);
 }
@@ -169,6 +173,11 @@ void TestComponent::timerCallback (int timerID)
     }
 }
 
+void TestComponent::changeListenerCallback (juce::ChangeBroadcaster* /*source*/)
+{
+    cueTable.updateContent();
+}
+
 void TestComponent::loadFile()
 {
     fileChooser = std::make_unique<juce::FileChooser> ("Select a video file to load...",
@@ -206,8 +215,7 @@ void TestComponent::sendLoadFile (const juce::File& file)
 
 void TestComponent::addCuePoint()
 {
-    audioProcessor.cuePoints.add ({ nextAvailableCueNote(), currentFrame });
-    cueTable.updateContent();
+    audioProcessor.addCuePoint ({ nextAvailableCueNote(), currentFrame });
 }
 
 void TestComponent::seekToCue (int row)
@@ -220,11 +228,7 @@ void TestComponent::seekToCue (int row)
 
 void TestComponent::removeCue (int row)
 {
-    if (! juce::isPositiveAndBelow (row, audioProcessor.cuePoints.size()))
-        return;
-
-    audioProcessor.cuePoints.remove (row);
-    cueTable.updateContent();
+    audioProcessor.removeCuePoint (row);
 }
 
 void TestComponent::triggerCueForNote (int midiNote)

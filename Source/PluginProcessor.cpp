@@ -217,6 +217,8 @@ void XJadeoControlAudioProcessor::setStateInformation (const void* data, int siz
 
     for (auto* cueXml : xmlState->getChildWithTagNameIterator ("CUEPOINT"))
         cuePoints.add ({ cueXml->getIntAttribute ("midiNote"), cueXml->getIntAttribute ("frame") });
+
+    sendChangeMessage();
 }
 
 //==============================================================================
