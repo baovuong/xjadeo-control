@@ -66,16 +66,20 @@ public:
         int frame;
     };
 
+    // TODO maybe make this into some sort of map/dictionary structure
     juce::Array<CuePoint> cuePoints;
 
     // Mutators broadcast a change message so any listening UI can refresh,
     // including when cuePoints is replaced wholesale by setStateInformation().
+    
+    // TODO move to .cpp
     void addCuePoint (const CuePoint& cue)
     {
         cuePoints.add (cue);
         sendChangeMessage();
     }
 
+    // TODO move to .cpp
     void removeCuePoint (int index)
     {
         if (! juce::isPositiveAndBelow (index, cuePoints.size()))
@@ -87,6 +91,7 @@ public:
 
     // Called from the message thread to drain MIDI note-on numbers received since the last call.
     // Returns false once no more are available. Single-consumer: call from one thread only.
+    // TODO move to .cpp
     bool popNoteOn (int& noteNumberOut) noexcept
     {
         int start1, size1, start2, size2;

@@ -1,12 +1,12 @@
 /*
   ==============================================================================
 
-    TestComponent.cpp
+    MainComponent.cpp
 
   ==============================================================================
 */
 
-#include "TestComponent.h"
+#include "MainComponent.h"
 #include "FfmpegVideoInfo.h"
 
 #include <algorithm>
@@ -41,7 +41,7 @@ namespace
 }
 
 //==============================================================================
-TestComponent::TestComponent (XJadeoControlAudioProcessor& processor)
+MainComponent::MainComponent (XJadeoControlAudioProcessor& processor)
     : audioProcessor (processor)
 {
     oscSender.connect (xjadeoHost, xjadeoPort);
@@ -79,7 +79,7 @@ TestComponent::TestComponent (XJadeoControlAudioProcessor& processor)
     startTimer (midiPollTimer, 20);
 }
 
-TestComponent::~TestComponent()
+MainComponent::~MainComponent()
 {
     audioProcessor.removeChangeListener (this);
 
@@ -87,12 +87,12 @@ TestComponent::~TestComponent()
     stopTimer (midiPollTimer);
 }
 
-void TestComponent::paint (juce::Graphics& g)
+void MainComponent::paint (juce::Graphics& g)
 {
     g.fillAll (getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId));
 }
 
-void TestComponent::resized()
+void MainComponent::resized()
 {
     auto bounds = getLocalBounds().reduced (10);
 
@@ -116,17 +116,17 @@ void TestComponent::resized()
     cueTable.setBounds (bounds);
 }
 
-void TestComponent::sendPlay()
+void MainComponent::sendPlay()
 {
     startTimer (frameTimer, 1000 / framesPerSecond);
 }
 
-void TestComponent::sendPause()
+void MainComponent::sendPause()
 {
     stopTimer (frameTimer);
 }
 
-void TestComponent::updateFrame (int frame)
+void MainComponent::updateFrame (int frame)
 {
     frame = numFrames > 0 ? juce::jlimit (0, (int) numFrames - 1, frame) : 0;
 
@@ -137,18 +137,18 @@ void TestComponent::updateFrame (int frame)
     updateFrameLabel();
 }
 
-void TestComponent::updateFrameLabel()
+void MainComponent::updateFrameLabel()
 {
     frameLabel.setText (juce::String (currentFrame) + " / " + juce::String (numFrames),
                          juce::dontSendNotification);
 }
 
-void TestComponent::sendFrame (int frame)
+void MainComponent::sendFrame (int frame)
 {
     oscSender.send (seekCmd, frame);
 }
 
-void TestComponent::timerCallback (int timerID)
+void MainComponent::timerCallback (int timerID)
 {
     if (timerID == frameTimer)
     {
@@ -173,12 +173,12 @@ void TestComponent::timerCallback (int timerID)
     }
 }
 
-void TestComponent::changeListenerCallback (juce::ChangeBroadcaster* /*source*/)
+void MainComponent::changeListenerCallback (juce::ChangeBroadcaster* /*source*/)
 {
     cueTable.updateContent();
 }
 
-void TestComponent::loadFile()
+void MainComponent::loadFile()
 {
     fileChooser = std::make_unique<juce::FileChooser> ("Select a video file to load...",
                                                          juce::File(),
@@ -199,7 +199,7 @@ void TestComponent::loadFile()
     });
 }
 
-void TestComponent::sendLoadFile (const juce::File& file)
+void MainComponent::sendLoadFile (const juce::File& file)
 {
     oscSender.send (loadCmd, file.getFullPathName());
 
@@ -213,12 +213,12 @@ void TestComponent::sendLoadFile (const juce::File& file)
     updateFrameLabel();
 }
 
-void TestComponent::addCuePoint()
+void MainComponent::addCuePoint()
 {
     audioProcessor.addCuePoint ({ nextAvailableCueNote(), currentFrame });
 }
 
-void TestComponent::seekToCue (int row)
+void MainComponent::seekToCue (int row)
 {
     if (! juce::isPositiveAndBelow (row, audioProcessor.cuePoints.size()))
         return;
@@ -226,12 +226,12 @@ void TestComponent::seekToCue (int row)
     updateFrame (audioProcessor.cuePoints.getReference (row).frame);
 }
 
-void TestComponent::removeCue (int row)
+void MainComponent::removeCue (int row)
 {
     audioProcessor.removeCuePoint (row);
 }
 
-void TestComponent::triggerCueForNote (int midiNote)
+void MainComponent::triggerCueForNote (int midiNote)
 {
     for (const auto& cue : audioProcessor.cuePoints)
     {
@@ -243,7 +243,7 @@ void TestComponent::triggerCueForNote (int midiNote)
     }
 }
 
-int TestComponent::nextAvailableCueNote() const
+int MainComponent::nextAvailableCueNote() const
 {
     int note = firstCueNoteNumber;
 
@@ -255,19 +255,19 @@ int TestComponent::nextAvailableCueNote() const
 }
 
 //==============================================================================
-int TestComponent::getNumRows()
+int MainComponent::getNumRows()
 {
     return audioProcessor.cuePoints.size();
 }
 
-void TestComponent::paintRowBackground (juce::Graphics& g, int /*rowNumber*/, int /*width*/, int /*height*/,
+void MainComponent::paintRowBackground (juce::Graphics& g, int /*rowNumber*/, int /*width*/, int /*height*/,
                                          bool rowIsSelected)
 {
     g.fillAll (rowIsSelected ? getLookAndFeel().findColour (juce::TextEditor::highlightColourId)
                               : getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId));
 }
 
-void TestComponent::paintCell (juce::Graphics& g, int rowNumber, int columnId, int width, int height,
+void MainComponent::paintCell (juce::Graphics& g, int rowNumber, int columnId, int width, int height,
                                 bool /*rowIsSelected*/)
 {
     if (! juce::isPositiveAndBelow (rowNumber, audioProcessor.cuePoints.size()))
@@ -287,7 +287,7 @@ void TestComponent::paintCell (juce::Graphics& g, int rowNumber, int columnId, i
     g.drawText (text, 4, 0, width - 8, height, juce::Justification::centredLeft);
 }
 
-juce::Component* TestComponent::refreshComponentForCell (int rowNumber, int columnId, bool /*isRowSelected*/,
+juce::Component* MainComponent::refreshComponentForCell (int rowNumber, int columnId, bool /*isRowSelected*/,
                                                            juce::Component* existingComponentToUpdate)
 {
     if (columnId != seekColumnId && columnId != removeColumnId)

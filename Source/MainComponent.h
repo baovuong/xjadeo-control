@@ -1,7 +1,7 @@
 /*
   ==============================================================================
 
-    TestComponent.h
+    MainComponent.h
 
   ==============================================================================
 */
@@ -14,14 +14,14 @@
 //==============================================================================
 /**
 */
-class TestComponent  : public juce::Component,
+class MainComponent  : public juce::Component,
                         private juce::MultiTimer,
                         private juce::TableListBoxModel,
                         private juce::ChangeListener
 {
 public:
-    explicit TestComponent (XJadeoControlAudioProcessor& processor);
-    ~TestComponent() override;
+    explicit MainComponent (XJadeoControlAudioProcessor& processor);
+    ~MainComponent() override;
 
     void paint (juce::Graphics&) override;
     void resized() override;
@@ -85,5 +85,5 @@ private:
     int currentFrame = 0;
     juce::int64 numFrames = 0;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TestComponent)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainComponent)
 };

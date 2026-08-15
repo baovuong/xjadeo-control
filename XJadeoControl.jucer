@@ -11,9 +11,9 @@
       <FILE id="UdH1Hg" name="PluginEditor.cpp" compile="1" resource="0"
             file="Source/PluginEditor.cpp"/>
       <FILE id="NtrpSc" name="PluginEditor.h" compile="0" resource="0" file="Source/PluginEditor.h"/>
-      <FILE id="a1B2c3" name="TestComponent.cpp" compile="1" resource="0"
-            file="Source/TestComponent.cpp"/>
-      <FILE id="d4E5f6" name="TestComponent.h" compile="0" resource="0" file="Source/TestComponent.h"/>
+      <FILE id="a1B2c3" name="MainComponent.cpp" compile="1" resource="0"
+            file="Source/MainComponent.cpp"/>
+      <FILE id="d4E5f6" name="MainComponent.h" compile="0" resource="0" file="Source/MainComponent.h"/>
       <FILE id="f7G8h9" name="FfmpegVideoInfo.cpp" compile="1" resource="0"
             file="Source/FfmpegVideoInfo.cpp"/>
       <FILE id="i0J1k2" name="FfmpegVideoInfo.h" compile="0" resource="0"
