@@ -221,6 +221,37 @@ void XJadeoControlAudioProcessor::setStateInformation (const void* data, int siz
     sendChangeMessage();
 }
 
+void XJadeoControlAudioProcessor::addCuePoint (const CuePoint& cue)
+{
+    cuePoints.add (cue);
+    sendChangeMessage();
+}
+
+void XJadeoControlAudioProcessor::removeCuePoint (int index)
+{
+    if (! juce::isPositiveAndBelow (index, cuePoints.size()))
+        return;
+
+    cuePoints.remove (index);
+    sendChangeMessage();
+}
+
+bool XJadeoControlAudioProcessor::popNoteOn(int &noteNumberOut) noexcept 
+{
+    int start1, size1, start2, size2;
+    midiNoteFifo.prepareToRead(1, start1, size1, start2, size2);
+
+    if (size1 > 0)
+        noteNumberOut = midiNoteBuffer[(size_t)start1];
+    else if (size2 > 0)
+        noteNumberOut = midiNoteBuffer[(size_t)start2];
+    else
+        return false;
+
+    midiNoteFifo.finishedRead(size1 + size2);
+    return true;
+}
+
 //==============================================================================
 // This creates new instances of the plugin..
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()

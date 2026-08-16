@@ -9,6 +9,7 @@
 #pragma once
 
 #include "juce_audio_processors/juce_audio_processors.h"
+#include "juce_core/juce_core.h"
 #include <JuceHeader.h>
 
 //==============================================================================
@@ -67,46 +68,19 @@ public:
     };
 
     // TODO maybe make this into some sort of map/dictionary structure
+    juce::HashMap<unsigned int, unsigned int> cuePointsMap; 
     juce::Array<CuePoint> cuePoints;
 
     // Mutators broadcast a change message so any listening UI can refresh,
     // including when cuePoints is replaced wholesale by setStateInformation().
-    
-    // TODO move to .cpp
-    void addCuePoint (const CuePoint& cue)
-    {
-        cuePoints.add (cue);
-        sendChangeMessage();
-    }
+    void addCuePoint(const CuePoint& cue);
+    void removeCuePoint(int index);
 
-    // TODO move to .cpp
-    void removeCuePoint (int index)
-    {
-        if (! juce::isPositiveAndBelow (index, cuePoints.size()))
-            return;
-
-        cuePoints.remove (index);
-        sendChangeMessage();
-    }
 
     // Called from the message thread to drain MIDI note-on numbers received since the last call.
     // Returns false once no more are available. Single-consumer: call from one thread only.
-    // TODO move to .cpp
-    bool popNoteOn (int& noteNumberOut) noexcept
-    {
-        int start1, size1, start2, size2;
-        midiNoteFifo.prepareToRead (1, start1, size1, start2, size2);
+    bool popNoteOn (int& noteNumberOut) noexcept;
 
-        if (size1 > 0)
-            noteNumberOut = midiNoteBuffer[(size_t) start1];
-        else if (size2 > 0)
-            noteNumberOut = midiNoteBuffer[(size_t) start2];
-        else
-            return false;
-
-        midiNoteFifo.finishedRead (size1 + size2);
-        return true;
-    }
 
 private:
     //==============================================================================
