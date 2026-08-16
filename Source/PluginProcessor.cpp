@@ -213,6 +213,7 @@ void XJadeoControlAudioProcessor::setStateInformation (const void* data, int siz
     if (xmlState == nullptr || ! xmlState->hasTagName ("XJadeoControlState"))
         return;
 
+    // TODO use map data structure instead of array
     cuePoints.clear();
 
     for (auto* cueXml : xmlState->getChildWithTagNameIterator ("CUEPOINT"))
@@ -223,6 +224,7 @@ void XJadeoControlAudioProcessor::setStateInformation (const void* data, int siz
 
 void XJadeoControlAudioProcessor::addCuePoint (const CuePoint& cue)
 {
+    // TODO use map data structure instead of array
     cuePoints.add (cue);
     sendChangeMessage();
 }
@@ -232,6 +234,7 @@ void XJadeoControlAudioProcessor::removeCuePoint (int index)
     if (! juce::isPositiveAndBelow (index, cuePoints.size()))
         return;
 
+    // TODO use map data structure instead of array
     cuePoints.remove (index);
     sendChangeMessage();
 }
