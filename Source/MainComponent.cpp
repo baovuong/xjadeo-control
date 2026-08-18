@@ -8,8 +8,7 @@
 
 #include "MainComponent.h"
 #include "FfmpegVideoInfo.h"
-
-#include <algorithm>
+#include <cmath>
 
 namespace
 {
@@ -215,7 +214,7 @@ void MainComponent::sendLoadFile (const juce::File& file)
 
 void MainComponent::addCuePoint()
 {
-    audioProcessor.addCuePoint ({ nextAvailableCueNote(), currentFrame });
+    audioProcessor.addCuePoint (currentFrame);
 }
 
 void MainComponent::seekToCue (int row)
@@ -223,35 +222,23 @@ void MainComponent::seekToCue (int row)
     if (! juce::isPositiveAndBelow (row, audioProcessor.cuePoints.size()))
         return;
 
-    updateFrame (audioProcessor.cuePoints.getReference (row).frame);
+    updateFrame (audioProcessor.cuePoints[row]);
 }
 
 void MainComponent::removeCue (int row)
 {
-    audioProcessor.removeCuePoint (row);
+    if (! juce::isPositiveAndBelow (row, audioProcessor.cuePoints.size()))
+        return;
+
+    audioProcessor.removeCuePoint (audioProcessor.cuePoints[row]);
 }
 
 void MainComponent::triggerCueForNote (int midiNote)
 {
-    for (const auto& cue : audioProcessor.cuePoints)
-    {
-        if (cue.midiNote == midiNote)
-        {
-            updateFrame (cue.frame);
-            break;
-        }
-    }
-}
+    const auto row = midiNote - firstCueNoteNumber;
 
-int MainComponent::nextAvailableCueNote() const
-{
-    int note = firstCueNoteNumber;
-
-    while (std::any_of (audioProcessor.cuePoints.begin(), audioProcessor.cuePoints.end(),
-                         [note] (const XJadeoControlAudioProcessor::CuePoint& cue) { return cue.midiNote == note; }))
-        ++note;
-
-    return note;
+    if (juce::isPositiveAndBelow (row, audioProcessor.cuePoints.size()))
+        updateFrame (audioProcessor.cuePoints[row]);
 }
 
 //==============================================================================
@@ -273,13 +260,12 @@ void MainComponent::paintCell (juce::Graphics& g, int rowNumber, int columnId, i
     if (! juce::isPositiveAndBelow (rowNumber, audioProcessor.cuePoints.size()))
         return;
 
-    const auto& cue = audioProcessor.cuePoints.getReference (rowNumber);
     juce::String text;
 
     if (columnId == midiNoteColumnId)
-        text = juce::String (cue.midiNote);
+        text = midiToNoteName (firstCueNoteNumber + rowNumber);
     else if (columnId == frameColumnId)
-        text = juce::String (cue.frame);
+        text = juce::String (audioProcessor.cuePoints[rowNumber]);
     else
         return;
 
@@ -309,4 +295,11 @@ juce::Component* MainComponent::refreshComponentForCell (int rowNumber, int colu
 
     button->setRow (rowNumber);
     return button;
+}
+
+const juce::String MainComponent::midiToNoteName(int noteValue)
+{
+    // minimum is 36 = C1
+    return notes[noteValue % 12] 
+        + juce::String(std::floor(noteValue / 12.0) - 2);
 }

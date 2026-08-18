@@ -196,11 +196,10 @@ void XJadeoControlAudioProcessor::getStateInformation (juce::MemoryBlock& destDa
 {
     juce::XmlElement xml ("XJadeoControlState");
 
-    for (const auto& cue : cuePoints)
+    for (auto frame : cuePoints)
     {
         auto* cueXml = xml.createNewChildElement ("CUEPOINT");
-        cueXml->setAttribute ("midiNote", cue.midiNote);
-        cueXml->setAttribute ("frame", cue.frame);
+        cueXml->setAttribute ("frame", frame);
     }
 
     copyXmlToBinary (xml, destData);
@@ -213,29 +212,23 @@ void XJadeoControlAudioProcessor::setStateInformation (const void* data, int siz
     if (xmlState == nullptr || ! xmlState->hasTagName ("XJadeoControlState"))
         return;
 
-    // TODO use map data structure instead of array
     cuePoints.clear();
 
     for (auto* cueXml : xmlState->getChildWithTagNameIterator ("CUEPOINT"))
-        cuePoints.add ({ cueXml->getIntAttribute ("midiNote"), cueXml->getIntAttribute ("frame") });
+        cuePoints.add (cueXml->getIntAttribute ("frame"));
 
     sendChangeMessage();
 }
 
-void XJadeoControlAudioProcessor::addCuePoint (const CuePoint& cue)
+void XJadeoControlAudioProcessor::addCuePoint (int frame)
 {
-    // TODO use map data structure instead of array
-    cuePoints.add (cue);
+    cuePoints.add (frame);
     sendChangeMessage();
 }
 
-void XJadeoControlAudioProcessor::removeCuePoint (int index)
+void XJadeoControlAudioProcessor::removeCuePoint (int frame)
 {
-    if (! juce::isPositiveAndBelow (index, cuePoints.size()))
-        return;
-
-    // TODO use map data structure instead of array
-    cuePoints.remove (index);
+    cuePoints.removeValue (frame);
     sendChangeMessage();
 }
 

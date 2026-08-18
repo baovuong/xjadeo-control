@@ -41,6 +41,21 @@ private:
         removeColumnId
     };
 
+    const juce::String notes[12] = {
+        "C", 
+        "C#",
+        "D", 
+        "D#", 
+        "E", 
+        "F", 
+        "F#", 
+        "G", 
+        "G#", 
+        "A", 
+        "A#", 
+        "B"
+    };
+
     void sendPlay();
     void sendPause();
     void sendFrame (int frame);
@@ -53,7 +68,6 @@ private:
     void seekToCue (int row);
     void removeCue (int row);
     void triggerCueForNote (int midiNote);
-    int nextAvailableCueNote() const;
 
     void timerCallback (int timerID) override;
 
@@ -64,6 +78,8 @@ private:
     int getNumRows() override;
     void paintRowBackground (juce::Graphics&, int rowNumber, int width, int height, bool rowIsSelected) override;
     void paintCell (juce::Graphics&, int rowNumber, int columnId, int width, int height, bool rowIsSelected) override;
+    const juce::String midiToNoteName(int noteValue);
+    
     juce::Component* refreshComponentForCell (int rowNumber, int columnId, bool isRowSelected,
                                                juce::Component* existingComponentToUpdate) override;
 

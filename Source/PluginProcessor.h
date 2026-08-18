@@ -61,20 +61,14 @@ public:
     static constexpr int playNoteNumber  = 36; // C1
     static constexpr int pauseNoteNumber = 37; // C#1
 
-    struct CuePoint
-    {
-        int midiNote;
-        int frame;
-    };
-
-    // TODO maybe make this into some sort of map/dictionary structure
-    juce::HashMap<unsigned int, unsigned int> cuePointsMap; 
-    juce::Array<CuePoint> cuePoints;
+    // Cue point frame numbers, sorted and de-duplicated. A cue's MIDI note is derived
+    // from its position in this set rather than stored explicitly (see MainComponent).
+    juce::SortedSet<int> cuePoints;
 
     // Mutators broadcast a change message so any listening UI can refresh,
     // including when cuePoints is replaced wholesale by setStateInformation().
-    void addCuePoint(const CuePoint& cue);
-    void removeCuePoint(int index);
+    void addCuePoint (int frame);
+    void removeCuePoint (int frame);
 
 
     // Called from the message thread to drain MIDI note-on numbers received since the last call.
