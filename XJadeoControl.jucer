@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <JUCERPROJECT id="ojHGkr" name="XJadeoControl" projectType="audioplug" useAppConfig="0"
-              addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1" pluginCharacteristicsValue="pluginIsSynth,pluginWantsMidiIn">
+              addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1" pluginCharacteristicsValue="pluginIsSynth,pluginWantsMidiIn"
+              version="0.5.0" companyName="Leloii Audio" companyWebsite="www.leloiiaudio.com">
   <MAINGROUP id="Uaf4a6" name="XJadeoControl">
     <GROUP id="{72E6D211-CEE0-F010-84F9-5353B1462DB4}" name="Source">
       <FILE id="gKNVVC" name="PluginProcessor.cpp" compile="1" resource="0"
