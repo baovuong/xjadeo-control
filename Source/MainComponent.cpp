@@ -7,20 +7,13 @@
 */
 
 #include "MainComponent.h"
-#include "FfmpegVideoInfo.h"
 #include <cmath>
 
 namespace
 {
-    const juce::String xjadeoHost = "127.0.0.1";
-    constexpr int xjadeoPort = 7890;
-    constexpr int framesPerSecond = 25;
-
-    const juce::String loadCmd = "/jadeo/load";
-    const juce::String seekCmd = "/jadeo/seek";
-
-    // Cue points start above the play/pause notes (36/37).
-    constexpr int firstCueNoteNumber = 38;
+    // UI refresh rate for the slider/frame label. Playback, MIDI handling, and
+    // OSC communication all happen in the processor regardless of this rate.
+    constexpr int uiRefreshHz = 25;
 
     class CueActionButton  : public juce::TextButton
     {
@@ -43,22 +36,24 @@ namespace
 MainComponent::MainComponent (XJadeoControlAudioProcessor& processor)
     : audioProcessor (processor)
 {
-    oscSender.connect (xjadeoHost, xjadeoPort);
-
-    playButton.onClick = [this] { sendPlay(); };
+    playButton.onClick = [this] { audioProcessor.play(); };
     addAndMakeVisible (playButton);
 
-    pauseButton.onClick = [this] { sendPause(); };
+    pauseButton.onClick = [this] { audioProcessor.pause(); };
     addAndMakeVisible (pauseButton);
 
     frameSlider.setSliderStyle (juce::Slider::LinearHorizontal);
     frameSlider.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
     frameSlider.setRange (0, 1, 1);
-    frameSlider.onValueChange = [this] { updateFrame ((int) frameSlider.getValue()); };
+    frameSlider.onValueChange = [this] { audioProcessor.seek ((int) frameSlider.getValue()); };
     addAndMakeVisible (frameSlider);
 
     updateFrameLabel();
     addAndMakeVisible (frameLabel);
+
+    filenameLabel.setText (audioProcessor.videoFile != juce::File{} ? audioProcessor.videoFile.getFileName() : "-",
+                            juce::dontSendNotification);
+    addAndMakeVisible (filenameLabel);
 
     loadFileButton.onClick = [this] { loadFile(); };
     addAndMakeVisible (loadFileButton);
@@ -75,15 +70,16 @@ MainComponent::MainComponent (XJadeoControlAudioProcessor& processor)
 
     audioProcessor.addChangeListener (this);
 
-    startTimer (midiPollTimer, 20);
+    frameSlider.setRange (0, (double) juce::jmax ((juce::int64) 0, audioProcessor.numFrames - 1), 1);
+    frameSlider.setValue (audioProcessor.currentFrame, juce::dontSendNotification);
+
+    startTimerHz (uiRefreshHz);
 }
 
 MainComponent::~MainComponent()
 {
     audioProcessor.removeChangeListener (this);
-
-    stopTimer (frameTimer);
-    stopTimer (midiPollTimer);
+    stopTimer();
 }
 
 void MainComponent::paint (juce::Graphics& g)
@@ -95,86 +91,53 @@ void MainComponent::resized()
 {
     auto bounds = getLocalBounds().reduced (10);
 
-    auto buttonRow = bounds.removeFromTop (30);
-    playButton.setBounds (buttonRow.removeFromLeft (80));
-    buttonRow.removeFromLeft (5);
-    pauseButton.setBounds (buttonRow.removeFromLeft (80));
-    buttonRow.removeFromLeft (5);
-    loadFileButton.setBounds (buttonRow.removeFromLeft (100));
-    buttonRow.removeFromLeft (5);
-    addCueButton.setBounds (buttonRow.removeFromLeft (100));
+
+    // file row
+    auto fileRow = bounds.removeFromTop (30);
+    fileRow.removeFromLeft (5);
+    loadFileButton.setBounds (fileRow.removeFromLeft (100));
+    fileRow.removeFromLeft (5);
+    filenameLabel.setBounds(fileRow.removeFromLeft (300));
 
     bounds.removeFromTop (10);
 
+    // nav row
+    auto navRow = bounds.removeFromTop(30);
+    playButton.setBounds (navRow.removeFromLeft (80));
+    navRow.removeFromLeft (5);
+    pauseButton.setBounds (navRow.removeFromLeft (80));
+    navRow.removeFromLeft(5);
+    frameLabel.setBounds(navRow.removeFromLeft(100));
+
+    // slider row
     auto sliderRow = bounds.removeFromTop(30);
     frameSlider.setBounds (sliderRow.removeFromLeft (300));
     sliderRow.removeFromLeft(5);
-    frameLabel.setBounds(sliderRow.removeFromLeft(100));
+    addCueButton.setBounds (sliderRow.removeFromLeft (100));
 
     bounds.removeFromTop (10);
     cueTable.setBounds (bounds);
 }
 
-void MainComponent::sendPlay()
-{
-    startTimer (frameTimer, 1000 / framesPerSecond);
-}
-
-void MainComponent::sendPause()
-{
-    stopTimer (frameTimer);
-}
-
-void MainComponent::updateFrame (int frame)
-{
-    frame = numFrames > 0 ? juce::jlimit (0, (int) numFrames - 1, frame) : 0;
-
-    currentFrame = frame;
-    sendFrame (frame);
-
-    frameSlider.setValue (frame, juce::dontSendNotification);
-    updateFrameLabel();
-}
-
 void MainComponent::updateFrameLabel()
 {
-    frameLabel.setText (juce::String (currentFrame) + " / " + juce::String (numFrames),
+    frameLabel.setText (juce::String (audioProcessor.currentFrame) + " / " + juce::String (audioProcessor.numFrames),
                          juce::dontSendNotification);
 }
 
-void MainComponent::sendFrame (int frame)
+void MainComponent::timerCallback()
 {
-    oscSender.send (seekCmd, frame);
-}
-
-void MainComponent::timerCallback (int timerID)
-{
-    if (timerID == frameTimer)
-    {
-        updateFrame (currentFrame + 1);
-
-        if (numFrames > 0 && currentFrame >= numFrames - 1)
-            sendPause();
-    }
-    else if (timerID == midiPollTimer)
-    {
-        int noteNumber;
-
-        while (audioProcessor.popNoteOn (noteNumber))
-        {
-            if (noteNumber == XJadeoControlAudioProcessor::playNoteNumber)
-                sendPlay();
-            else if (noteNumber == XJadeoControlAudioProcessor::pauseNoteNumber)
-                sendPause();
-            else
-                triggerCueForNote (noteNumber);
-        }
-    }
+    frameSlider.setRange (0, (double) juce::jmax ((juce::int64) 0, audioProcessor.numFrames - 1), 1);
+    frameSlider.setValue (audioProcessor.currentFrame, juce::dontSendNotification);
+    updateFrameLabel();
 }
 
 void MainComponent::changeListenerCallback (juce::ChangeBroadcaster* /*source*/)
 {
     cueTable.updateContent();
+
+    filenameLabel.setText (audioProcessor.videoFile != juce::File{} ? audioProcessor.videoFile.getFileName() : "-",
+                            juce::dontSendNotification);
 }
 
 void MainComponent::loadFile()
@@ -193,28 +156,13 @@ void MainComponent::loadFile()
         if (file == juce::File{})
             return;
 
-        videoFile = file;
-        sendLoadFile (videoFile);
+        audioProcessor.loadVideoFile (file);
     });
-}
-
-void MainComponent::sendLoadFile (const juce::File& file)
-{
-    oscSender.send (loadCmd, file.getFullPathName());
-
-    const auto info = readFfmpegVideoInfo (file);
-
-    numFrames = info.isValid ? info.frameCount : 0;
-    currentFrame = 0;
-
-    frameSlider.setRange (0, (double) juce::jmax ((juce::int64) 0, numFrames - 1), 1);
-    frameSlider.setValue (0, juce::dontSendNotification);
-    updateFrameLabel();
 }
 
 void MainComponent::addCuePoint()
 {
-    audioProcessor.addCuePoint (currentFrame);
+    audioProcessor.addCuePoint (audioProcessor.currentFrame);
 }
 
 void MainComponent::seekToCue (int row)
@@ -222,7 +170,7 @@ void MainComponent::seekToCue (int row)
     if (! juce::isPositiveAndBelow (row, audioProcessor.cuePoints.size()))
         return;
 
-    updateFrame (audioProcessor.cuePoints[row]);
+    audioProcessor.seek (audioProcessor.cuePoints[row]);
 }
 
 void MainComponent::removeCue (int row)
@@ -231,14 +179,6 @@ void MainComponent::removeCue (int row)
         return;
 
     audioProcessor.removeCuePoint (audioProcessor.cuePoints[row]);
-}
-
-void MainComponent::triggerCueForNote (int midiNote)
-{
-    const auto row = midiNote - firstCueNoteNumber;
-
-    if (juce::isPositiveAndBelow (row, audioProcessor.cuePoints.size()))
-        updateFrame (audioProcessor.cuePoints[row]);
 }
 
 //==============================================================================
@@ -263,7 +203,7 @@ void MainComponent::paintCell (juce::Graphics& g, int rowNumber, int columnId, i
     juce::String text;
 
     if (columnId == midiNoteColumnId)
-        text = midiToNoteName (firstCueNoteNumber + rowNumber);
+        text = midiToNoteName (XJadeoControlAudioProcessor::firstCueNoteNumber + rowNumber);
     else if (columnId == frameColumnId)
         text = juce::String (audioProcessor.cuePoints[rowNumber]);
     else
@@ -300,6 +240,6 @@ juce::Component* MainComponent::refreshComponentForCell (int rowNumber, int colu
 const juce::String MainComponent::midiToNoteName(int noteValue)
 {
     // minimum is 36 = C1
-    return notes[noteValue % 12] 
+    return notes[noteValue % 12]
         + juce::String(std::floor(noteValue / 12.0) - 2);
 }
