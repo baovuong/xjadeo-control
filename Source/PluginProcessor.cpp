@@ -209,18 +209,7 @@ juce::AudioProcessorEditor* XJadeoControlAudioProcessor::createEditor()
 //==============================================================================
 void XJadeoControlAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
-    juce::XmlElement xml ("XJadeoControlState");
-
-    xml.setAttribute ("videoFile", videoFile.getFullPathName());
-    xml.setAttribute ("isPlaying", isPlaying);
-
-    for (auto frame : cuePoints)
-    {
-        auto* cueXml = xml.createNewChildElement ("CUEPOINT");
-        cueXml->setAttribute ("frame", frame);
-    }
-
-    copyXmlToBinary (xml, destData);
+    copyXmlToBinary (createStateXml(), destData);
 }
 
 void XJadeoControlAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
@@ -236,24 +225,45 @@ void XJadeoControlAudioProcessor::setStateInformation (const void* data, int siz
     // read concurrently by the message-thread UI). Defer applying the state.
     juce::MessageManager::callAsync ([this, xmlState = std::shared_ptr<juce::XmlElement> (xmlState.release())]
     {
-        const juce::File restoredVideoFile (xmlState->getStringAttribute ("videoFile"));
-        const bool restoredIsPlaying = xmlState->getBoolAttribute ("isPlaying");
-
-        cuePoints.clear();
-
-        for (auto* cueXml : xmlState->getChildWithTagNameIterator ("CUEPOINT"))
-            cuePoints.add (cueXml->getIntAttribute ("frame"));
-
-        if (restoredVideoFile != juce::File{})
-            loadVideoFile (restoredVideoFile);
-
-        if (restoredIsPlaying)
-            play();
-        else
-            pause();
-
-        sendChangeMessage();
+        restoreFromXml (*xmlState);
     });
+}
+
+juce::XmlElement XJadeoControlAudioProcessor::createStateXml() const
+{
+    juce::XmlElement xml ("XJadeoControlState");
+
+    xml.setAttribute ("videoFile", videoFile.getFullPathName());
+    xml.setAttribute ("isPlaying", isPlaying);
+
+    for (auto frame : cuePoints)
+    {
+        auto* cueXml = xml.createNewChildElement ("CUEPOINT");
+        cueXml->setAttribute ("frame", frame);
+    }
+
+    return xml;
+}
+
+void XJadeoControlAudioProcessor::restoreFromXml (const juce::XmlElement& xmlState)
+{
+    const juce::File restoredVideoFile (xmlState.getStringAttribute ("videoFile"));
+    const bool restoredIsPlaying = xmlState.getBoolAttribute ("isPlaying");
+
+    cuePoints.clear();
+
+    for (auto* cueXml : xmlState.getChildWithTagNameIterator ("CUEPOINT"))
+        cuePoints.add (cueXml->getIntAttribute ("frame"));
+
+    if (restoredVideoFile != juce::File{})
+        loadVideoFile (restoredVideoFile);
+
+    if (restoredIsPlaying)
+        play();
+    else
+        pause();
+
+    sendChangeMessage();
 }
 
 void XJadeoControlAudioProcessor::addCuePoint (int frame)

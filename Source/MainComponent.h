@@ -53,6 +53,9 @@ private:
     void updateFrameLabel();
     void loadFile();
 
+    void loadPreset();
+    void savePreset();
+
     void addCuePoint();
     void seekToCue (int row);
     void removeCue (int row);
@@ -80,6 +83,8 @@ private:
     juce::TextButton pauseButton     { "Pause" };
     juce::TextButton loadFileButton  { "Load File" };
     juce::TextButton addCueButton    { "Add Cue" };
+    juce::TextButton loadPresetButton { "Load Preset" };
+    juce::TextButton savePresetButton { "Save Preset" };
     juce::Label frameLabel;
     juce::Slider frameSlider;
     juce::TableListBox cueTable;

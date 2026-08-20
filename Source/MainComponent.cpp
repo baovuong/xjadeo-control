@@ -61,6 +61,12 @@ MainComponent::MainComponent (XJadeoControlAudioProcessor& processor)
     addCueButton.onClick = [this] { addCuePoint(); };
     addAndMakeVisible (addCueButton);
 
+    loadPresetButton.onClick = [this] { loadPreset(); };
+    addAndMakeVisible (loadPresetButton);
+
+    savePresetButton.onClick = [this] { savePreset(); };
+    addAndMakeVisible (savePresetButton);
+
     cueTable.setModel (this);
     cueTable.getHeader().addColumn ("MIDI Note", midiNoteColumnId, 80);
     cueTable.getHeader().addColumn ("Frame", frameColumnId, 80);
@@ -91,6 +97,14 @@ void MainComponent::resized()
 {
     auto bounds = getLocalBounds().reduced (10);
 
+    // preset row
+    auto presetRow = bounds.removeFromTop(30);
+    presetRow.removeFromLeft(5);
+    loadPresetButton.setBounds(presetRow.removeFromLeft(100));
+    presetRow.removeFromLeft(5);
+    savePresetButton.setBounds(presetRow.removeFromLeft(100));
+
+    bounds.removeFromTop (10);
 
     // file row
     auto fileRow = bounds.removeFromTop (30);
@@ -157,6 +171,53 @@ void MainComponent::loadFile()
             return;
 
         audioProcessor.loadVideoFile (file);
+    });
+}
+
+void MainComponent::loadPreset()
+{
+    fileChooser = std::make_unique<juce::FileChooser> ("Load preset...",
+                                                         juce::File(),
+                                                         "*.xml");
+
+    constexpr auto chooserFlags = juce::FileBrowserComponent::openMode
+                                 | juce::FileBrowserComponent::canSelectFiles;
+
+    fileChooser->launchAsync (chooserFlags, [this] (const juce::FileChooser& fc)
+    {
+        const auto file = fc.getResult();
+
+        if (file == juce::File{})
+            return;
+
+        auto xmlState = juce::parseXMLIfTagMatches (file, "XJadeoControlState");
+
+        if (xmlState != nullptr)
+            audioProcessor.restoreFromXml (*xmlState);
+    });
+}
+
+void MainComponent::savePreset()
+{
+    fileChooser = std::make_unique<juce::FileChooser> ("Save preset...",
+                                                         juce::File(),
+                                                         "*.xml");
+
+    constexpr auto chooserFlags = juce::FileBrowserComponent::saveMode
+                                 | juce::FileBrowserComponent::canSelectFiles
+                                 | juce::FileBrowserComponent::warnAboutOverwriting;
+
+    fileChooser->launchAsync (chooserFlags, [this] (const juce::FileChooser& fc)
+    {
+        auto file = fc.getResult();
+
+        if (file == juce::File{})
+            return;
+
+        if (file.getFileExtension().isEmpty())
+            file = file.withFileExtension ("xml");
+
+        audioProcessor.createStateXml().writeTo (file);
     });
 }
 

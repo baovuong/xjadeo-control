@@ -57,6 +57,11 @@ public:
     void getStateInformation (juce::MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
 
+    // Builds/applies the same XML representation used by get/setStateInformation,
+    // shared with MainComponent's preset save/load so both stay in the same format.
+    juce::XmlElement createStateXml() const;
+    void restoreFromXml (const juce::XmlElement& xmlState);
+
     //==============================================================================
     // MIDI note numbers (C3 = middle C / note 60 convention) that trigger transport control.
     static constexpr int playNoteNumber  = 36; // C1
