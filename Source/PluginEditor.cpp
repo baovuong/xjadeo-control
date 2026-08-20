@@ -11,13 +11,13 @@
 
 //==============================================================================
 XJadeoControlAudioProcessorEditor::XJadeoControlAudioProcessorEditor (XJadeoControlAudioProcessor& p)
-    : AudioProcessorEditor (&p), audioProcessor (p), testComponent (p)
+    : AudioProcessorEditor (&p), audioProcessor (p), mainComponent (p)
 {
     // Make sure that before the constructor has finished, you've set the
     // editor's size to whatever you need it to be.
     setSize (500, 450);
 
-    addAndMakeVisible(testComponent);
+    addAndMakeVisible(mainComponent);
 }
 
 XJadeoControlAudioProcessorEditor::~XJadeoControlAudioProcessorEditor()
@@ -38,5 +38,5 @@ void XJadeoControlAudioProcessorEditor::resized()
 {
     // This is generally where you'll want to lay out the positions of any
     // subcomponents in your editor..
-    testComponent.setBounds (getLocalBounds());
+    mainComponent.setBounds (getLocalBounds());
 }

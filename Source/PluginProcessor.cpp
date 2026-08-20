@@ -8,6 +8,19 @@
 
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "FfmpegVideoInfo.h"
+#include "juce_core/juce_core.h"
+#include <memory>
+
+namespace
+{
+    const juce::String xjadeoHost = "127.0.0.1";
+    constexpr int xjadeoPort = 7890;
+    constexpr int framesPerSecond = 25;
+
+    const juce::String loadCmd = "/jadeo/load";
+    const juce::String seekCmd = "/jadeo/seek";
+}
 
 //==============================================================================
 XJadeoControlAudioProcessor::XJadeoControlAudioProcessor()
@@ -22,10 +35,14 @@ XJadeoControlAudioProcessor::XJadeoControlAudioProcessor()
                        )
 #endif
 {
+    oscSender.connect (xjadeoHost, xjadeoPort);
+    startTimer (midiPollTimerId, 20);
 }
 
 XJadeoControlAudioProcessor::~XJadeoControlAudioProcessor()
 {
+    stopTimer (frameTimerId);
+    stopTimer (midiPollTimerId);
 }
 
 //==============================================================================
@@ -192,15 +209,162 @@ juce::AudioProcessorEditor* XJadeoControlAudioProcessor::createEditor()
 //==============================================================================
 void XJadeoControlAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
-    // You should use this method to store your parameters in the memory block.
-    // You could do that either as raw data, or use the XML or ValueTree classes
-    // as intermediaries to make it easy to save and load complex data.
+    copyXmlToBinary (createStateXml(), destData);
 }
 
 void XJadeoControlAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
-    // You should use this method to restore your parameters from this memory block,
-    // whose contents will have been created by the getStateInformation() call.
+    std::unique_ptr<juce::XmlElement> xmlState (getXmlFromBinary (data, sizeInBytes));
+
+    if (xmlState == nullptr || ! xmlState->hasTagName ("XJadeoControlState"))
+        return;
+
+    // Hosts can call setStateInformation() from a background loading thread, but
+    // cuePoints and the transport timers are only safe to touch from the message
+    // thread (JUCE's Timer start/stop isn't safe cross-thread, and cuePoints is
+    // read concurrently by the message-thread UI). Defer applying the state.
+    juce::MessageManager::callAsync ([this, xmlState = std::shared_ptr<juce::XmlElement> (xmlState.release())]
+    {
+        restoreFromXml (*xmlState);
+    });
+}
+
+juce::XmlElement XJadeoControlAudioProcessor::createStateXml() const
+{
+    juce::XmlElement xml ("XJadeoControlState");
+
+    xml.setAttribute ("videoFile", videoFile.getFullPathName());
+    xml.setAttribute ("isPlaying", isPlaying);
+
+    for (auto frame : cuePoints)
+    {
+        auto* cueXml = xml.createNewChildElement ("CUEPOINT");
+        cueXml->setAttribute ("frame", frame);
+    }
+
+    return xml;
+}
+
+void XJadeoControlAudioProcessor::restoreFromXml (const juce::XmlElement& xmlState)
+{
+    const juce::File restoredVideoFile (xmlState.getStringAttribute ("videoFile"));
+    const bool restoredIsPlaying = xmlState.getBoolAttribute ("isPlaying");
+
+    cuePoints.clear();
+
+    for (auto* cueXml : xmlState.getChildWithTagNameIterator ("CUEPOINT"))
+        cuePoints.add (cueXml->getIntAttribute ("frame"));
+
+    if (restoredVideoFile != juce::File{})
+        loadVideoFile (restoredVideoFile);
+
+    if (restoredIsPlaying)
+        play();
+    else
+        pause();
+
+    sendChangeMessage();
+}
+
+void XJadeoControlAudioProcessor::addCuePoint (int frame)
+{
+    cuePoints.add (frame);
+    sendChangeMessage();
+}
+
+void XJadeoControlAudioProcessor::removeCuePoint (int frame)
+{
+    cuePoints.removeValue (frame);
+    sendChangeMessage();
+}
+
+void XJadeoControlAudioProcessor::play()
+{
+    isPlaying = true;
+    startTimer (frameTimerId, 1000 / framesPerSecond);
+    sendChangeMessage();
+}
+
+void XJadeoControlAudioProcessor::pause()
+{
+    isPlaying = false;
+    stopTimer (frameTimerId);
+    sendChangeMessage();
+}
+
+void XJadeoControlAudioProcessor::seek (int frame)
+{
+    frame = numFrames > 0 ? juce::jlimit (0, (int) numFrames - 1, frame) : 0;
+
+    currentFrame = frame;
+    sendFrame (frame);
+}
+
+void XJadeoControlAudioProcessor::sendFrame (int frame)
+{
+    oscSender.send (seekCmd, frame);
+}
+
+void XJadeoControlAudioProcessor::loadVideoFile (const juce::File& file)
+{
+    videoFile = file;
+    oscSender.send (loadCmd, file.getFullPathName());
+
+    const auto info = readFfmpegVideoInfo (file);
+
+    numFrames = info.isValid ? info.frameCount : 0;
+    currentFrame = 0;
+
+    sendChangeMessage();
+}
+
+void XJadeoControlAudioProcessor::triggerCueForNote (int midiNote)
+{
+    const auto row = midiNote - firstCueNoteNumber;
+
+    if (juce::isPositiveAndBelow (row, cuePoints.size()))
+        seek (cuePoints[row]);
+}
+
+void XJadeoControlAudioProcessor::timerCallback (int timerID)
+{
+    if (timerID == frameTimerId)
+    {
+        seek (currentFrame + 1);
+
+        if (numFrames > 0 && currentFrame >= numFrames - 1)
+            pause();
+    }
+    else if (timerID == midiPollTimerId)
+    {
+        int noteNumber;
+
+        while (popNoteOn (noteNumber))
+        {
+            if (noteNumber == playNoteNumber)
+                play();
+            else if (noteNumber == pauseNoteNumber)
+                pause();
+            else
+                triggerCueForNote (noteNumber);
+        }
+    }
+}
+
+bool XJadeoControlAudioProcessor::popNoteOn(int &noteNumberOut) noexcept
+{
+    int start1, size1, start2, size2;
+    midiNoteFifo.prepareToRead(1, start1, size1, start2, size2);
+
+    if (size1 > 0)
+        noteNumberOut = midiNoteBuffer[(size_t)start1];
+    else if (size2 > 0)
+        noteNumberOut = midiNoteBuffer[(size_t)start2];
+    else
+        return false;
+
+    midiNoteFifo.finishedRead(size1 + size2);
+    return true;
 }
 
 //==============================================================================
