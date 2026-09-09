@@ -80,6 +80,11 @@ public:
     int currentFrame = 0;
     juce::int64 numFrames = 0;
 
+    // Detected from the loaded video file (see loadVideoFile()); falls back to
+    // defaultFrameRate when the file's rate can't be determined, so playback
+    // advances at the video's own pace rather than a fixed guess.
+    double frameRate = 25.0;
+
     // Mutators broadcast a change message so any listening UI can refresh,
     // including when cuePoints is replaced wholesale by setStateInformation().
     void addCuePoint (int frame);

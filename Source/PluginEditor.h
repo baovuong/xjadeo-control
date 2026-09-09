@@ -11,6 +11,7 @@
 #include <JuceHeader.h>
 #include "PluginProcessor.h"
 #include "MainComponent.h"
+#include "FooterComponent.h"
 
 //==============================================================================
 /**
@@ -30,6 +31,7 @@ private:
     // access the processor object that created it.
     XJadeoControlAudioProcessor& audioProcessor;
     MainComponent mainComponent;
+    FooterComponent footerComponent;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (XJadeoControlAudioProcessorEditor)
 };

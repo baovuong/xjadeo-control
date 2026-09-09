@@ -18,6 +18,7 @@ XJadeoControlAudioProcessorEditor::XJadeoControlAudioProcessorEditor (XJadeoCont
     setSize (500, 450);
 
     addAndMakeVisible(mainComponent);
+    addAndMakeVisible(footerComponent);
 }
 
 XJadeoControlAudioProcessorEditor::~XJadeoControlAudioProcessorEditor()
@@ -38,5 +39,7 @@ void XJadeoControlAudioProcessorEditor::resized()
 {
     // This is generally where you'll want to lay out the positions of any
     // subcomponents in your editor..
-    mainComponent.setBounds (getLocalBounds());
+    auto bounds = getLocalBounds();
+    footerComponent.setBounds (bounds.removeFromBottom (20));
+    mainComponent.setBounds (bounds);
 }

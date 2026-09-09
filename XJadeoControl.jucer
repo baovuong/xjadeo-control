@@ -2,9 +2,13 @@
 
 <JUCERPROJECT id="ojHGkr" name="XJadeoControl" projectType="audioplug" useAppConfig="0"
               addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1" pluginCharacteristicsValue="pluginIsSynth,pluginWantsMidiIn"
-              version="0.5.0" companyName="Leloii Audio" companyWebsite="www.leloiiaudio.com">
+              version="0.5.1" companyName="Leloii Audio" companyWebsite="www.leloiiaudio.com">
   <MAINGROUP id="Uaf4a6" name="XJadeoControl">
     <GROUP id="{72E6D211-CEE0-F010-84F9-5353B1462DB4}" name="Source">
+      <FILE id="NJ6DUN" name="FooterComponent.cpp" compile="1" resource="0"
+            file="Source/FooterComponent.cpp"/>
+      <FILE id="mM6eAe" name="FooterComponent.h" compile="0" resource="0"
+            file="Source/FooterComponent.h"/>
       <FILE id="gKNVVC" name="PluginProcessor.cpp" compile="1" resource="0"
             file="Source/PluginProcessor.cpp"/>
       <FILE id="QJ6A3T" name="PluginProcessor.h" compile="0" resource="0"

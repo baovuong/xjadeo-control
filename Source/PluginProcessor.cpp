@@ -10,13 +10,16 @@
 #include "PluginEditor.h"
 #include "FfmpegVideoInfo.h"
 #include "juce_core/juce_core.h"
+#include <cmath>
 #include <memory>
 
 namespace
 {
     const juce::String xjadeoHost = "127.0.0.1";
     constexpr int xjadeoPort = 7890;
-    constexpr int framesPerSecond = 25;
+
+    // Used when no video is loaded yet, or its frame rate couldn't be determined.
+    constexpr double defaultFrameRate = 25.0;
 
     const juce::String loadCmd = "/jadeo/load";
     const juce::String seekCmd = "/jadeo/seek";
@@ -281,7 +284,7 @@ void XJadeoControlAudioProcessor::removeCuePoint (int frame)
 void XJadeoControlAudioProcessor::play()
 {
     isPlaying = true;
-    startTimer (frameTimerId, 1000 / framesPerSecond);
+    startTimer (frameTimerId, (int) std::round (1000.0 / frameRate));
     sendChangeMessage();
 }
 
@@ -313,7 +316,12 @@ void XJadeoControlAudioProcessor::loadVideoFile (const juce::File& file)
     const auto info = readFfmpegVideoInfo (file);
 
     numFrames = info.isValid ? info.frameCount : 0;
+    frameRate = (info.isValid && info.frameRate > 0.0) ? info.frameRate : defaultFrameRate;
     currentFrame = 0;
+
+    // Reflect the new rate immediately if a play is already in progress.
+    if (isPlaying)
+        startTimer (frameTimerId, (int) std::round (1000.0 / frameRate));
 
     sendChangeMessage();
 }
